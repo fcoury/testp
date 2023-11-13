@@ -9,7 +9,7 @@ pub enum Error {
     SendError(mpsc::SendError<Message>),
     BroadcastError(mpsc::SendError<Box<[u8]>>),
     ConnectionError {
-        target: String,
+        target: SocketAddr,
         cause: std::io::Error,
     },
 }

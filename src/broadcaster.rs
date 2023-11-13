@@ -38,9 +38,9 @@ fn target(stream: Arc<TcpStream>, send_message: mpsc::Sender<Message>) -> Result
                 "Target {addr} incoming: {}",
                 String::from_utf8_lossy(&bytes)
             );
-            send_message.send(Message::BroadcastResponse { addr, bytes })?;
+            send_message.send(Message::NewTargetMessage { addr, bytes })?;
         } else {
-            // TODO tx.send(Message::ClientDisconnected { addr })?;
+            send_message.send(Message::TargetDisconnected { addr })?;
             break;
         }
     }

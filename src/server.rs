@@ -30,11 +30,11 @@ pub fn server(
             Message::TargetDisconnected { addr } => {
                 server.target_disconnected(addr);
             }
-            Message::NewMessage { addr, bytes } => {
+            Message::NewClientMessage { addr, bytes } => {
                 server.new_message(addr, &bytes);
                 send_broadcast.send(bytes)?;
             }
-            Message::BroadcastResponse { addr, bytes } => {
+            Message::NewTargetMessage { addr, bytes } => {
                 server.new_response(addr, &bytes);
             }
         }
@@ -100,11 +100,11 @@ pub enum Message {
     TargetDisconnected {
         addr: SocketAddr,
     },
-    NewMessage {
+    NewClientMessage {
         addr: SocketAddr,
         bytes: Box<[u8]>,
     },
-    BroadcastResponse {
+    NewTargetMessage {
         addr: SocketAddr,
         bytes: Box<[u8]>,
     },
