@@ -5,6 +5,8 @@ use std::{
 };
 
 use broadcaster::broadcaster;
+use clap::Parser;
+use cli::Cli;
 use client::client;
 use error::{Error, Result};
 use server::server;
@@ -12,6 +14,7 @@ pub use server::Message;
 use target::Target;
 
 mod broadcaster;
+mod cli;
 mod client;
 mod error;
 mod server;
@@ -26,8 +29,10 @@ mod target;
 /// Target - each server that acts as the application
 ///
 fn main() -> Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:6000")?;
-    let targets = vec!["127.0.0.1:6001".to_string(), "127.0.0.1:6002".to_string()];
+    let args = Cli::parse();
+
+    let listener = TcpListener::bind(args.from_addr)?;
+    let targets = args.to_addr;
 
     // used to send messages to the server
     let (send_message, receive_message) = mpsc::channel();
@@ -58,7 +63,7 @@ fn main() -> Result<()> {
                 thread::spawn(|| client(stream, send_message));
             }
             Err(err) => {
-                println!("Error accepting connection: {}", err);
+                eprintln!("Error accepting connection: {}", err);
             }
         }
     }

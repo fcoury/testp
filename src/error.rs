@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::{net::SocketAddr, sync::mpsc};
 
 use crate::Message;
 

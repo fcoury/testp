@@ -1,6 +1,6 @@
 use std::{
     io::{Read, Write},
-    net::TcpStream,
+    net::{SocketAddr, TcpStream},
     sync::{mpsc, Arc},
     thread,
 };
@@ -8,7 +8,7 @@ use std::{
 use crate::{Error, Message, Result, Target};
 
 pub fn broadcaster(
-    targets: Vec<String>,
+    targets: Vec<SocketAddr>,
     receive_broadcast: mpsc::Receiver<Box<[u8]>>,
     send_message: mpsc::Sender<Message>,
 ) -> Result<()> {
@@ -53,7 +53,7 @@ struct Broadcaster {
 }
 
 impl Broadcaster {
-    fn new(targets: Vec<String>) -> Result<Self> {
+    fn new(targets: Vec<SocketAddr>) -> Result<Self> {
         let connections: Result<Vec<_>> = targets
             .into_iter()
             .map(|target| {
