@@ -5,10 +5,13 @@ use clap::Parser;
 #[derive(Parser)]
 pub struct Cli {
     /// The address to listen on
-    pub from_addr: SocketAddr,
+    pub listen_addr: SocketAddr,
 
-    /// The address to forward to
-    pub to_addr: Vec<SocketAddr>,
+    /// Main target address
+    pub main_target_addr: SocketAddr,
+
+    /// Additional target addresses
+    pub secondary_target_addrs: Vec<SocketAddr>,
 
     /// Modifying script
     #[clap(short, long)]

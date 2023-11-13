@@ -6,6 +6,9 @@ mod cli;
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    start_proxy(args.from_addr, args.to_addr)?;
+    let mut targets = vec![args.main_target_addr];
+    targets.extend(args.secondary_target_addrs);
+
+    start_proxy(args.listen_addr, targets)?;
     Ok(())
 }
