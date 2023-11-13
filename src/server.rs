@@ -5,7 +5,7 @@ use std::{
     sync::{mpsc, Arc},
 };
 
-use crate::{client::Client, Message, Result};
+use crate::{client::Client, Result};
 
 pub fn server(
     receive_message: mpsc::Receiver<Message>,
@@ -83,4 +83,29 @@ impl Server {
             _ = client.stream.as_ref().write_all(bytes);
         }
     }
+}
+
+pub enum Message {
+    ClientConnected {
+        stream: Arc<TcpStream>,
+        addr: SocketAddr,
+    },
+    ClientDisconnected {
+        addr: SocketAddr,
+    },
+    TargetConnected {
+        stream: Arc<TcpStream>,
+        addr: SocketAddr,
+    },
+    TargetDisconnected {
+        addr: SocketAddr,
+    },
+    NewMessage {
+        addr: SocketAddr,
+        bytes: Box<[u8]>,
+    },
+    BroadcastResponse {
+        addr: SocketAddr,
+        bytes: Box<[u8]>,
+    },
 }

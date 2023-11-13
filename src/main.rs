@@ -1,5 +1,5 @@
 use std::{
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::TcpListener,
     sync::{mpsc, Arc},
     thread,
 };
@@ -8,6 +8,7 @@ use broadcaster::broadcaster;
 use client::client;
 use error::{Error, Result};
 use server::server;
+pub use server::Message;
 use target::Target;
 
 mod broadcaster;
@@ -15,31 +16,6 @@ mod client;
 mod error;
 mod server;
 mod target;
-
-pub enum Message {
-    ClientConnected {
-        stream: Arc<TcpStream>,
-        addr: SocketAddr,
-    },
-    ClientDisconnected {
-        addr: SocketAddr,
-    },
-    TargetConnected {
-        stream: Arc<TcpStream>,
-        addr: SocketAddr,
-    },
-    TargetDisconnected {
-        addr: SocketAddr,
-    },
-    NewMessage {
-        addr: SocketAddr,
-        bytes: Box<[u8]>,
-    },
-    BroadcastResponse {
-        addr: SocketAddr,
-        bytes: Box<[u8]>,
-    },
-}
 
 /// A sketch of the new architecture for the yprox multiplexing, modifying proxy server
 ///
