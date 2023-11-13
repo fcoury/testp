@@ -5,7 +5,7 @@ use std::{
     sync::{mpsc, Arc},
 };
 
-use crate::{client::Client, Result};
+use crate::{client::Client, utils::hex_dump, Result};
 
 pub fn server(
     receive_message: mpsc::Receiver<Message>,
@@ -27,15 +27,15 @@ pub fn server(
             } => {
                 server.target_connected(addr);
             }
-            Message::TargetDisconnected { addr } => {
-                server.target_disconnected(addr);
+            Message::TargetDisconnected { name, addr } => {
+                server.target_disconnected(name, addr);
             }
             Message::NewClientMessage { addr, bytes } => {
                 server.new_message(addr, &bytes);
                 send_broadcast.send(bytes)?;
             }
-            Message::NewTargetMessage { addr, bytes } => {
-                server.new_response(addr, &bytes);
+            Message::NewTargetMessage { name, addr, bytes } => {
+                server.new_response(name, addr, &bytes);
             }
         }
     }
@@ -68,16 +68,16 @@ impl Server {
         println!("Target connected: {}", addr);
     }
 
-    fn target_disconnected(&mut self, addr: SocketAddr) {
-        println!("Target disconnected: {}", addr);
+    fn target_disconnected(&mut self, name: String, addr: SocketAddr) {
+        println!("Target {} disconnected: {}", name, addr);
     }
 
     fn new_message(&mut self, addr: SocketAddr, bytes: &[u8]) {
-        println!("New message from {}: {:?}", addr, bytes);
+        hex_dump(bytes, format!("{}", addr).as_str());
     }
 
-    fn new_response(&mut self, addr: SocketAddr, bytes: &[u8]) {
-        println!("New response from {}: {:?}", addr, bytes);
+    fn new_response(&mut self, name: String, _addr: SocketAddr, bytes: &[u8]) {
+        hex_dump(bytes, &name);
         for client in self.clients.values() {
             // TODO: handle result below
             _ = client.stream.as_ref().write_all(bytes);
@@ -93,18 +93,20 @@ pub enum Message {
     ClientDisconnected {
         addr: SocketAddr,
     },
+    NewClientMessage {
+        addr: SocketAddr,
+        bytes: Box<[u8]>,
+    },
     TargetConnected {
         stream: Arc<TcpStream>,
         addr: SocketAddr,
     },
     TargetDisconnected {
+        name: String,
         addr: SocketAddr,
-    },
-    NewClientMessage {
-        addr: SocketAddr,
-        bytes: Box<[u8]>,
     },
     NewTargetMessage {
+        name: String,
         addr: SocketAddr,
         bytes: Box<[u8]>,
     },

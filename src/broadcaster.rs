@@ -8,7 +8,7 @@ use std::{
 use crate::{Error, Message, Result, Target};
 
 pub fn broadcaster(
-    targets: Vec<SocketAddr>,
+    targets: Vec<(String, SocketAddr)>,
     receive_broadcast: mpsc::Receiver<Box<[u8]>>,
     send_message: mpsc::Sender<Message>,
 ) -> Result<()> {
@@ -17,8 +17,9 @@ pub fn broadcaster(
     // spawn the target threads (target -> server)
     for t in &broadcaster.targets {
         let stream = t.stream.clone();
+        let name = t.name.clone();
         let send_message = send_message.clone();
-        thread::spawn(|| target(stream, send_message));
+        thread::spawn(|| target(name, stream, send_message));
     }
 
     loop {
@@ -27,20 +28,20 @@ pub fn broadcaster(
     }
 }
 
-fn target(stream: Arc<TcpStream>, send_message: mpsc::Sender<Message>) -> Result<()> {
+fn target(name: String, stream: Arc<TcpStream>, send_message: mpsc::Sender<Message>) -> Result<()> {
     let addr = stream.peer_addr()?;
     let mut buffer = [0; 1024];
     loop {
         let n = stream.as_ref().read(&mut buffer)?;
         if n > 0 {
             let bytes: Box<[u8]> = buffer[..n].iter().cloned().collect();
-            println!(
-                "Target {addr} incoming: {}",
-                String::from_utf8_lossy(&bytes)
-            );
-            send_message.send(Message::NewTargetMessage { addr, bytes })?;
+            send_message.send(Message::NewTargetMessage {
+                name: name.clone(),
+                addr,
+                bytes,
+            })?;
         } else {
-            send_message.send(Message::TargetDisconnected { addr })?;
+            send_message.send(Message::TargetDisconnected { name, addr })?;
             break;
         }
     }
@@ -53,19 +54,24 @@ struct Broadcaster {
 }
 
 impl Broadcaster {
-    fn new(targets: Vec<SocketAddr>) -> Result<Self> {
+    fn new(targets: Vec<(String, SocketAddr)>) -> Result<Self> {
         let connections: Result<Vec<_>> = targets
             .into_iter()
-            .map(|target| {
-                TcpStream::connect(target.clone())
-                    .map_err(|cause| Error::ConnectionError { target, cause })
+            .map(|(name, target)| {
+                let conn = TcpStream::connect(target.clone())
+                    .map_err(|cause| Error::ConnectionError { target, cause });
+                match conn {
+                    Ok(stream) => Ok((name, stream)),
+                    Err(err) => Err(err),
+                }
             })
             .collect();
 
         let targets = connections?
             .into_iter()
-            .map(|stream| Target {
+            .map(|(name, stream)| Target {
                 stream: Arc::new(stream),
+                name,
             })
             .collect();
 

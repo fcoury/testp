@@ -17,6 +17,7 @@ mod client;
 mod error;
 mod server;
 mod target;
+mod utils;
 
 /// A sketch of the new architecture for the yprox multiplexing, modifying proxy server
 ///
@@ -26,7 +27,7 @@ mod target;
 /// Server - the proxy server, a man-in-the-middle between the client and the application
 /// Target - each server that acts as the application
 ///
-pub fn start_proxy(from_addr: SocketAddr, targets: Vec<SocketAddr>) -> Result<()> {
+pub fn start_proxy(from_addr: SocketAddr, targets: Vec<(String, SocketAddr)>) -> Result<()> {
     let listener = TcpListener::bind(from_addr)?;
 
     // used to send messages to the server
