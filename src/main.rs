@@ -42,29 +42,12 @@ impl Broadcaster {
         Ok(Self { targets })
     }
 
-    fn new_broadcast(&mut self, send_message: mpsc::Sender<Message>, bytes: &[u8]) -> Result<()> {
-        println!("New broadcast: {:?}", bytes);
-
+    fn new_broadcast(&mut self, bytes: &[u8]) -> Result<()> {
         for target in &self.targets {
-            let send_message = send_message.clone();
             let stream = target.stream.clone();
             let bytes = bytes.to_vec();
-            thread::spawn(move || {
-                stream.as_ref().write_all(&bytes);
-
-                let mut buffer = [0; 1024];
-                let n = stream.as_ref().read(&mut buffer).unwrap_or(0);
-                let addr = stream
-                    .peer_addr()
-                    .expect("peer address should be valid at this point");
-
-                if n > 0 {
-                    let bytes: Box<[u8]> = buffer[..n].iter().cloned().collect();
-                    send_message.send(Message::NewResponse { addr, bytes });
-                } else {
-                    send_message.send(Message::TargetDisconnected { addr });
-                }
-            });
+            // TODO handle result below
+            _ = stream.as_ref().write_all(&bytes);
         }
 
         Ok(())
@@ -106,6 +89,10 @@ impl Server {
 
     fn new_response(&mut self, addr: SocketAddr, bytes: &[u8]) {
         println!("New response from {}: {:?}", addr, bytes);
+        for client in self.clients.values() {
+            // TODO: handle result below
+            _ = client.stream.as_ref().write_all(bytes);
+        }
     }
 }
 
@@ -128,7 +115,7 @@ pub enum Message {
         addr: SocketAddr,
         bytes: Box<[u8]>,
     },
-    NewResponse {
+    BroadcastResponse {
         addr: SocketAddr,
         bytes: Box<[u8]>,
     },
@@ -185,7 +172,7 @@ fn server(
                 server.new_message(addr, &bytes);
                 send_broadcast.send(bytes)?;
             }
-            Message::NewResponse { addr, bytes } => {
+            Message::BroadcastResponse { addr, bytes } => {
                 server.new_response(addr, &bytes);
             }
         }
@@ -201,11 +188,37 @@ fn broadcaster(
 ) -> Result<()> {
     let mut broadcaster = Broadcaster::new(targets)?;
 
+    for target in &broadcaster.targets {
+        let stream = target.stream.clone();
+        let send_message = send_message.clone();
+        thread::spawn(|| target_client(stream, send_message));
+    }
+
     loop {
         let bytes = receive_broadcast.recv()?;
-        let send_message = send_message.clone();
-        broadcaster.new_broadcast(send_message, &bytes)?;
+        broadcaster.new_broadcast(&bytes)?;
     }
+}
+
+fn target_client(stream: Arc<TcpStream>, send_message: mpsc::Sender<Message>) -> Result<()> {
+    let addr = stream.peer_addr()?;
+    let mut buffer = [0; 1024];
+    loop {
+        let n = stream.as_ref().read(&mut buffer)?;
+        if n > 0 {
+            let bytes: Box<[u8]> = buffer[..n].iter().cloned().collect();
+            println!(
+                "Target {addr} incoming: {}",
+                String::from_utf8_lossy(&bytes)
+            );
+            send_message.send(Message::BroadcastResponse { addr, bytes })?;
+        } else {
+            // TODO tx.send(Message::ClientDisconnected { addr })?;
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -218,6 +231,7 @@ fn main() -> Result<()> {
     let (send_broadcast, receive_broadcast) = mpsc::channel();
 
     thread::spawn(|| server(receive_message, send_broadcast));
+
     let send_message_clone = send_message.clone();
     thread::spawn(|| {
         broadcaster(targets, receive_broadcast, send_message_clone)
